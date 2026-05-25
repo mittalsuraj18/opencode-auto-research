@@ -1,59 +1,127 @@
 #!/usr/bin/env bash
-# autoresearch.sh — Benchmark harness for test coverage optimization.
+# autoresearch.sh — Benchmark harness for README SEO optimization.
 # Emits METRIC and ASI lines for the autoresearch loop.
 #
-# Primary metric: test_coverage_pct (line coverage percentage, higher is better)
+# Primary metric: seo_score (composite 0-100, higher is better)
 # Secondary metrics:
-#   - test_count (number of tests)
-#   - expect_calls (number of expect() calls)
-#   - uncovered_lines (number of uncovered lines)
+#   - heading_structure_score (0-25)
+#   - content_depth_score (0-25)
+#   - keyword_richness_score (0-25)
+#   - technical_seo_score (0-25)
 #
 # Exit code: 0 = success, non-zero = failure
 
 set -euo pipefail
 
-# Run tests with coverage, capture output
-OUTPUT_FILE=$(mktemp)
-trap 'rm -f "$OUTPUT_FILE"' EXIT
+README="README.md"
+PKG="package.json"
 
-bun test --timeout 30000 --coverage 2>&1 | tee "$OUTPUT_FILE" || true
-
-# Parse coverage from the output
-COVERAGE_PCT=0
-TEST_COUNT=0
-EXPECT_CALLS=0
-UNCOVERED_LINES=0
-
-# Extract line coverage percentage from the "All files" row
-# Format: "All files | 85.92 | 79.17 |"
-ALL_FILES_LINE=$(grep -E "^All files\s" "$OUTPUT_FILE" || true)
-if [ -n "$ALL_FILES_LINE" ]; then
-  # The line coverage is the 3rd column (% Lines)
-  COVERAGE_PCT=$(echo "$ALL_FILES_LINE" | awk -F'|' '{gsub(/^ +| +$/, "", $3); print $3}')
-  # Remove any trailing % just in case
-  COVERAGE_PCT=$(echo "$COVERAGE_PCT" | tr -d '%')
+# Ensure README exists
+if [[ ! -f "$README" ]]; then
+  echo "METRIC seo_score=0"
+  echo "ASI error=readme_missing"
+  exit 1
 fi
 
-# Extract test count from "Ran N tests across F files" line
-TESTS_LINE=$(grep -E "^Ran [0-9]+ tests" "$OUTPUT_FILE" || true)
-if [ -n "$TESTS_LINE" ]; then
-  TEST_COUNT=$(echo "$TESTS_LINE" | awk '{print $2}')
+# Read content
+CONTENT=$(cat "$README")
+LINES=$(echo "$CONTENT" | wc -l | tr -d ' ')
+WORDS=$(echo "$CONTENT" | wc -w | tr -d ' ')
+
+# Count headings
+H1_COUNT=$(echo "$CONTENT" | grep -c '^# ' || true)
+H2_COUNT=$(echo "$CONTENT" | grep -c '^## ' || true)
+H3_COUNT=$(echo "$CONTENT" | grep -c '^### ' || true)
+TOTAL_HEADINGS=$((H1_COUNT + H2_COUNT + H3_COUNT))
+
+# Check for key sections
+HAS_INSTALLATION=$(echo "$CONTENT" | grep -ciE 'install|getting started|quick start' || true)
+HAS_USAGE=$(echo "$CONTENT" | grep -ciE 'usage|example|how to|quick start' || true)
+HAS_FEATURES=$(echo "$CONTENT" | grep -ciE 'feature|overview|what' || true)
+HAS_LICENSE=$(echo "$CONTENT" | grep -ciE 'license|licence' || true)
+HAS_LINKS=$(echo "$CONTENT" | grep -cE '\[.*\]\(.*\)' || true)
+HAS_BADGES=$(echo "$CONTENT" | grep -cE '!\[.*\]\(.*\)' || true)
+HAS_CODE_BLOCKS=$(echo "$CONTENT" | grep -c '^\s*\`\`\`' || true)
+HAS_TABLE=$(echo "$CONTENT" | grep -cE '^\|.*\|' || true)
+HAS_TOC=$(echo "$CONTENT" | grep -ciE 'table of contents|toc|contents' || true)
+
+# Keyword analysis - target keywords for an opencode plugin
+KEYWORDS=("opencode" "plugin" "autoresearch" "benchmark" "optimize" "experiment" "automated")
+KEYWORD_SCORE=0
+for kw in "${KEYWORDS[@]}"; do
+  COUNT=$(echo "$CONTENT" | grep -ci "$kw" || true)
+  if [[ "$COUNT" -gt 0 ]]; then
+    KEYWORD_SCORE=$((KEYWORD_SCORE + 1))
+  fi
+done
+
+# Package.json keywords
+PKG_KEYWORDS=0
+if [[ -f "$PKG" ]]; then
+  PKG_KEYWORDS=$(grep -c '"keywords"' "$PKG" || true)
 fi
 
-# Extract expect() calls from "N expect() calls" line
-EXPECT_LINE=$(grep -E "[0-9]+ expect\(\) calls" "$OUTPUT_FILE" || true)
-if [ -n "$EXPECT_LINE" ]; then
-  EXPECT_CALLS=$(echo "$EXPECT_LINE" | awk '{print $1}')
-fi
+# --- Compute sub-scores ---
+
+# Heading structure (0-25)
+HEADING_SCORE=0
+[[ "$H1_COUNT" -ge 1 ]] && HEADING_SCORE=$((HEADING_SCORE + 5))
+[[ "$H2_COUNT" -ge 3 ]] && HEADING_SCORE=$((HEADING_SCORE + 5))
+[[ "$H3_COUNT" -ge 2 ]] && HEADING_SCORE=$((HEADING_SCORE + 5))
+[[ "$TOTAL_HEADINGS" -ge 5 ]] && HEADING_SCORE=$((HEADING_SCORE + 5))
+[[ "$HAS_TOC" -gt 0 ]] && HEADING_SCORE=$((HEADING_SCORE + 5))
+
+# Content depth (0-25)
+DEPTH_SCORE=0
+[[ "$WORDS" -ge 100 ]] && DEPTH_SCORE=$((DEPTH_SCORE + 5))
+[[ "$WORDS" -ge 300 ]] && DEPTH_SCORE=$((DEPTH_SCORE + 5))
+[[ "$WORDS" -ge 500 ]] && DEPTH_SCORE=$((DEPTH_SCORE + 5))
+[[ "$HAS_CODE_BLOCKS" -gt 0 ]] && DEPTH_SCORE=$((DEPTH_SCORE + 5))
+[[ "$HAS_TABLE" -gt 0 ]] && DEPTH_SCORE=$((DEPTH_SCORE + 5))
+
+# Keyword richness (0-25)
+KEYWORD_RICHNESS=$((KEYWORD_SCORE * 3))
+[[ "$KEYWORD_RICHNESS" -gt 25 ]] && KEYWORD_RICHNESS=25
+[[ "$PKG_KEYWORDS" -gt 0 ]] && KEYWORD_RICHNESS=$((KEYWORD_RICHNESS + 5))
+[[ "$KEYWORD_RICHNESS" -gt 25 ]] && KEYWORD_RICHNESS=25
+
+# Technical SEO (0-25)
+TECH_SCORE=0
+[[ "$HAS_INSTALLATION" -gt 0 ]] && TECH_SCORE=$((TECH_SCORE + 5))
+[[ "$HAS_USAGE" -gt 0 ]] && TECH_SCORE=$((TECH_SCORE + 5))
+[[ "$HAS_FEATURES" -gt 0 ]] && TECH_SCORE=$((TECH_SCORE + 5))
+[[ "$HAS_LICENSE" -gt 0 ]] && TECH_SCORE=$((TECH_SCORE + 5))
+[[ "$HAS_LINKS" -gt 0 ]] && TECH_SCORE=$((TECH_SCORE + 5))
+
+# Composite score
+SEO_SCORE=$((HEADING_SCORE + DEPTH_SCORE + KEYWORD_RICHNESS + TECH_SCORE))
 
 # Emit metrics
-echo "METRIC test_coverage_pct=${COVERAGE_PCT}"
-echo "METRIC test_count=${TEST_COUNT}"
-echo "METRIC expect_calls=${EXPECT_CALLS}"
+echo "METRIC seo_score=${SEO_SCORE}"
+echo "METRIC heading_structure_score=${HEADING_SCORE}"
+echo "METRIC content_depth_score=${DEPTH_SCORE}"
+echo "METRIC keyword_richness_score=${KEYWORD_RICHNESS}"
+echo "METRIC technical_seo_score=${TECH_SCORE}"
+echo "METRIC word_count=${WORDS}"
+echo "METRIC heading_count=${TOTAL_HEADINGS}"
 
-# Emit ASI (Agent State Info)
-echo "ASI primary_metric=test_coverage_pct"
+# Emit ASI
+echo "ASI primary_metric=seo_score"
 echo "ASI direction=higher"
-echo "ASI goal=improve_test_coverage"
+echo "ASI goal=improve_readme_seo"
+echo "ASI h1_count=${H1_COUNT}"
+echo "ASI h2_count=${H2_COUNT}"
+echo "ASI h3_count=${H3_COUNT}"
+echo "ASI has_installation=${HAS_INSTALLATION}"
+echo "ASI has_usage=${HAS_USAGE}"
+echo "ASI has_features=${HAS_FEATURES}"
+echo "ASI has_license=${HAS_LICENSE}"
+echo "ASI has_links=${HAS_LINKS}"
+echo "ASI has_badges=${HAS_BADGES}"
+echo "ASI has_code_blocks=${HAS_CODE_BLOCKS}"
+echo "ASI has_table=${HAS_TABLE}"
+echo "ASI has_toc=${HAS_TOC}"
+echo "ASI pkg_keywords=${PKG_KEYWORDS}"
+echo "ASI keyword_matches=${KEYWORD_SCORE}"
 
 exit 0
