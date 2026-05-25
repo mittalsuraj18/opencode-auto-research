@@ -24,7 +24,7 @@
   "exports": {
     ".": "./dist/index.js"
   },
-  "main": "index.js",
+  "main": "./dist/index.js",
   "directories": {
     "test": "test"
   },
