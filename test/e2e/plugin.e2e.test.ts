@@ -411,28 +411,26 @@ describe("Plugin E2E — Full Experiment Loop", () => {
 	describe("command execution", () => {
 		it("handles /autoresearch <goal> for new experiment", async () => {
 			const { dir, cleanup } = createTestDir();
-			const { client, prompts } = createTrackingClient();
+			const { client } = createTrackingClient();
 			const pluginInstance = await plugin({ client, directory: dir });
 
 			const sessionID = `test-session-${Date.now()}`;
+			const output = { parts: [] as any[] };
 
-			try {
-				await pluginInstance["command.execute.before"]!(
-					{
-						command: "autoresearch",
-						sessionID,
-						arguments: "optimize compile time",
-					},
-					{ parts: [] },
-				);
-				expect(true).toBe(false); // Should throw
-			} catch (err: any) {
-				expect(err.message).toContain("AUTORESEARCH_HANDLED");
-			}
+			await pluginInstance["command.execute.before"]!(
+				{
+					command: "autoresearch",
+					sessionID,
+					arguments: "optimize compile time",
+				},
+				output,
+			);
 
-			expect(prompts).toHaveLength(1);
-			expect(prompts[0].text).toContain("optimize compile time");
-			expect(prompts[0].text).toContain("Start an autoresearch experiment");
+			// The hook should replace parts with our custom prompt
+			expect(output.parts.length).toBe(1);
+			expect(output.parts[0].type).toBe("text");
+			expect(output.parts[0].text).toContain("optimize compile time");
+			expect(output.parts[0].text).toContain("Start an autoresearch experiment");
 
 			cleanup();
 		});
@@ -445,7 +443,7 @@ describe("Plugin E2E — Full Experiment Loop", () => {
 				'#!/bin/bash\necho "METRIC compile_time_ms=1000"',
 			);
 
-			const { client, prompts } = createTrackingClient();
+			const { client } = createTrackingClient();
 			const pluginInstance = await plugin({ client, directory: dir });
 
 			// First init an experiment
@@ -466,23 +464,22 @@ describe("Plugin E2E — Full Experiment Loop", () => {
 
 			// Now resume with a new session
 			const resumeSessionID = `test-session-${Date.now() + 1}`;
-			try {
-				await pluginInstance["command.execute.before"]!(
-					{
-						command: "autoresearch",
-						sessionID: resumeSessionID,
-						arguments: "",
-					},
-					{ parts: [] },
-				);
-				expect(true).toBe(false); // Should throw
-			} catch (err: any) {
-				expect(err.message).toContain("AUTORESEARCH_HANDLED");
-			}
+			const output = { parts: [] as any[] };
 
-			expect(prompts.length).toBeGreaterThanOrEqual(1);
-			expect(prompts[prompts.length - 1].text).toContain("Continue autoresearch experiment");
-			expect(prompts[prompts.length - 1].text).toContain("ActiveTest");
+			await pluginInstance["command.execute.before"]!(
+				{
+					command: "autoresearch",
+					sessionID: resumeSessionID,
+					arguments: "",
+				},
+				output,
+			);
+
+			// The hook should replace parts with a resume prompt
+			expect(output.parts.length).toBe(1);
+			expect(output.parts[0].type).toBe("text");
+			expect(output.parts[0].text).toContain("Continue autoresearch experiment");
+			expect(output.parts[0].text).toContain("ActiveTest");
 
 			cleanup();
 		});

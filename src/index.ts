@@ -86,29 +86,6 @@ export default (async ({ client, directory }) => {
 		? fs.readFileSync(setupPromptPath, "utf-8")
 		: "";
 
-	// Helper to send synthetic user prompt via client
-	const sendUserPrompt = async (sessionID: string, text: string): Promise<void> => {
-		if (!client) return;
-		const c = client as any;
-		const input = {
-			path: { id: sessionID },
-			body: {
-				parts: [{ type: "text", text }],
-			},
-		};
-		try {
-			if (typeof c.session?.promptAsync === "function") {
-				await c.session.promptAsync(input);
-			} else if (typeof c.session?.prompt === "function") {
-				await Promise.resolve(c.session.prompt(input));
-			} else if (typeof c.prompt === "function") {
-				await Promise.resolve(c.prompt(input));
-			}
-		} catch (err) {
-			console.error("Failed to send user prompt:", err);
-		}
-	};
-
 	return {
 		tool: {
 			init_experiment: initExperimentTool,
@@ -129,29 +106,41 @@ export default (async ({ client, directory }) => {
 		},
 
 		// Handle /autoresearch command execution
-		"command.execute.before": async (input) => {
+		// Instead of throwing a sentinel error (which crashes the HTTP handler),
+		// we replace the command's parts with our custom prompt so the agent
+		// receives our instructions naturally.
+		"command.execute.before": async (input, output) => {
 			if (input.command !== "autoresearch") return;
 
 			const goal = input.arguments.trim();
-			const sessionID = input.sessionID;
 			const currentRuntime = getRuntime();
 
+			let promptText: string;
 			if (currentRuntime.autoresearchMode && currentRuntime.state.sessionId > 0) {
 				// Resume existing experiment
-				const prompt = goal
+				promptText = goal
 					? `Continue autoresearch experiment "${currentRuntime.state.name}". New goal: ${goal}. Run the next experiment.`
 					: `Continue autoresearch experiment "${currentRuntime.state.name}". Run the next experiment.`;
-				await sendUserPrompt(sessionID, prompt);
 			} else {
 				// Start new experiment
-				const prompt = goal
+				promptText = goal
 					? `Start an autoresearch experiment. Goal: ${goal}. Create autoresearch.sh if missing. Call init_experiment with appropriate benchmark name and metric. Run baseline, log it as keep, then continue optimizing.`
 					: "Start an autoresearch experiment. Create autoresearch.sh if missing. Call init_experiment with appropriate benchmark name and metric. Run baseline, log it as keep, then continue optimizing.";
-				await sendUserPrompt(sessionID, prompt);
 			}
 
-			// Prevent the raw command from being forwarded to the LLM
-			throw new Error("__AUTORESEARCH_HANDLED__");
+			// Replace the command's parts with our custom prompt.
+			// The command.execute.before hook receives { parts } as output,
+			// and whatever we put in parts becomes what the agent sees.
+			if (output && output.parts) {
+				output.parts.length = 0; // Clear existing parts
+				output.parts.push({
+					type: "text",
+					id: `autoresearch-${Date.now()}`,
+					sessionID: input.sessionID,
+					messageID: `msg-${Date.now()}`,
+					text: promptText,
+				});
+			}
 		},
 
 		// Track current model for compaction
