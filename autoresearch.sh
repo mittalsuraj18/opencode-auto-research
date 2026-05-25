@@ -1,71 +1,49 @@
 #!/usr/bin/env bash
-# autoresearch.sh — Benchmark harness for WIKI completeness
+# autoresearch.sh — Benchmark harness for test coverage
 # Emits METRIC and ASI lines for the autoresearch loop.
 #
-# Primary metric: wiki_completeness_score (0-100, higher is better)
-# Checks for required WIKI pages and their quality
+# Primary metric: line_coverage_percent (0-100, higher is better)
 
 set -euo pipefail
 
-WIKI_DIR="wiki"
-SCORE=0
-MAX_SCORE=100
+# Run tests with coverage, capturing output
+OUTPUT=$(bun test --coverage --timeout 30000 2>&1)
+EXIT_CODE=$?
 
-# Check if wiki directory exists
-if [[ -d "$WIKI_DIR" ]]; then
-    # Points for having wiki directory (10 points)
-    SCORE=$((SCORE + 10))
+# Extract overall line coverage from the summary table
+LINE_COVERAGE=$(echo "$OUTPUT" | grep '^All files' | awk '{print $3}' | tr -d ' ' || echo "0")
+FUNC_COVERAGE=$(echo "$OUTPUT" | grep '^All files' | awk '{print $2}' | tr -d ' ' || echo "0")
+
+# Remove trailing % if present
+LINE_COVERAGE=$(echo "$LINE_COVERAGE" | tr -d '%')
+FUNC_COVERAGE=$(echo "$FUNC_COVERAGE" | tr -d '%')
+
+# Count tests passed/failed
+TESTS_PASS=$(echo "$OUTPUT" | grep -E '^\s+[0-9]+ pass' | awk '{print $1}' || echo "0")
+TESTS_FAIL=$(echo "$OUTPUT" | grep -E '^\s+[0-9]+ fail' | awk '{print $1}' || echo "0")
+
+# If we can't parse coverage, default to 0
+if [[ -z "$LINE_COVERAGE" || "$LINE_COVERAGE" == "0" ]]; then
+    LINE_COVERAGE="0"
 fi
 
-# Define required wiki pages as a list
-PAGES=(overview architecture tools configuration development troubleshooting contributing changelog examples)
-
-# Check for each page
-TOTAL_PAGES=0
-EXISTING_PAGES=0
-TOTAL_LENGTH=0
-for page in "${PAGES[@]}"; do
-    TOTAL_PAGES=$((TOTAL_PAGES + 1))
-    filepath="$WIKI_DIR/$page.md"
-    if [[ -f "$filepath" ]]; then
-        EXISTING_PAGES=$((EXISTING_PAGES + 1))
-        # Add points for existence (10 points per page)
-        SCORE=$((SCORE + 10))
-        
-        # Check content length (bonus points for substantial content)
-        length=$(wc -l < "$filepath" | tr -d ' ')
-        TOTAL_LENGTH=$((TOTAL_LENGTH + length))
-        
-        # Bonus points for content over 20 lines
-        if [[ $length -gt 20 ]]; then
-            SCORE=$((SCORE + 2))
-        fi
-        
-        # Bonus points for code examples (fenced code blocks)
-        code_blocks=$(grep -c '^```' "$filepath" || true)
-        if [[ $code_blocks -gt 0 ]]; then
-            SCORE=$((SCORE + 2))
-        fi
-    fi
-done
-
-# Cap score at MAX_SCORE
-if [[ $SCORE -gt $MAX_SCORE ]]; then
-    SCORE=$MAX_SCORE
+if [[ -z "$FUNC_COVERAGE" || "$FUNC_COVERAGE" == "0" ]]; then
+    FUNC_COVERAGE="0"
 fi
 
 # Emit metrics
-echo "METRIC wiki_completeness_score=${SCORE}"
-echo "METRIC total_pages=${TOTAL_PAGES}"
-echo "METRIC existing_pages=${EXISTING_PAGES}"
-echo "METRIC total_lines=${TOTAL_LENGTH}"
+echo "METRIC line_coverage_percent=${LINE_COVERAGE}"
+echo "METRIC func_coverage_percent=${FUNC_COVERAGE}"
+echo "METRIC tests_pass=${TESTS_PASS}"
+echo "METRIC tests_fail=${TESTS_FAIL}"
 
 # Emit ASI
-echo "ASI primary_metric=wiki_completeness_score"
+echo "ASI primary_metric=line_coverage_percent"
 echo "ASI direction=higher"
-echo "ASI goal=create_complete_wiki"
-echo "ASI total_pages=${TOTAL_PAGES}"
-echo "ASI existing_pages=${EXISTING_PAGES}"
-echo "ASI total_lines=${TOTAL_LENGTH}"
+echo "ASI goal=improve_test_coverage_to_100_percent"
+echo "ASI tests_pass=${TESTS_PASS}"
+echo "ASI tests_fail=${TESTS_FAIL}"
+echo "ASI line_coverage=${LINE_COVERAGE}"
+echo "ASI func_coverage=${FUNC_COVERAGE}"
 
-exit 0
+exit ${EXIT_CODE}
