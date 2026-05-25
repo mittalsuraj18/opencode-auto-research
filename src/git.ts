@@ -82,7 +82,7 @@ export async function ensureAutoresearchBranch(
 
 	const branchName = await allocateBranchName(workDir, goal);
 	try {
-		await $`git -C ${workDir} checkout -b ${branchName}`;
+		await $`git -C ${workDir} checkout -b ${branchName}`.quiet();
 	} catch (err) {
 		return {
 			ok: false,
@@ -174,11 +174,11 @@ function currentDateStamp(): string {
 export async function gitCommit(workDir: string, message: string, files: string[]): Promise<string | null> {
 	try {
 		if (files.length > 0) {
-			await $`git -C ${workDir} add ${files}`;
+			await $`git -C ${workDir} add ${files}`.quiet();
 		} else {
-			await $`git -C ${workDir} add -A`;
+			await $`git -C ${workDir} add -A`.quiet();
 		}
-		await $`git -C ${workDir} commit -m ${message}`;
+		await $`git -C ${workDir} commit -m ${message}`.quiet();
 		const hash = await $`git -C ${workDir} rev-parse HEAD`.text();
 		return hash.trim();
 	} catch (err) {
@@ -188,7 +188,7 @@ export async function gitCommit(workDir: string, message: string, files: string[
 
 export async function gitResetHard(workDir: string): Promise<void> {
 	try {
-		await $`git -C ${workDir} reset --hard HEAD`;
+		await $`git -C ${workDir} reset --hard HEAD`.quiet();
 	} catch {
 		// Ignore errors
 	}
@@ -196,7 +196,7 @@ export async function gitResetHard(workDir: string): Promise<void> {
 
 export async function gitClean(workDir: string): Promise<void> {
 	try {
-		await $`git -C ${workDir} clean -fd`;
+		await $`git -C ${workDir} clean -fd`.quiet();
 	} catch {
 		// Ignore errors
 	}
@@ -205,7 +205,7 @@ export async function gitClean(workDir: string): Promise<void> {
 export async function gitRestoreFiles(workDir: string, files: string[]): Promise<void> {
 	if (files.length === 0) return;
 	try {
-		await $`git -C ${workDir} restore --source=HEAD --staged --worktree ${files}`;
+		await $`git -C ${workDir} restore --source=HEAD --staged --worktree ${files}`.quiet();
 	} catch {
 		// Ignore errors
 	}
@@ -214,7 +214,7 @@ export async function gitRestoreFiles(workDir: string, files: string[]): Promise
 export async function gitAdd(workDir: string, files: string[]): Promise<void> {
 	if (files.length === 0) return;
 	try {
-		await $`git -C ${workDir} add ${files}`;
+		await $`git -C ${workDir} add ${files}`.quiet();
 	} catch {
 		// Ignore errors
 	}
