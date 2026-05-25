@@ -1,127 +1,172 @@
 #!/usr/bin/env bash
-# autoresearch.sh — Benchmark harness for README SEO optimization.
+# autoresearch.sh — Benchmark harness for codebase documentation quality.
 # Emits METRIC and ASI lines for the autoresearch loop.
 #
-# Primary metric: seo_score (composite 0-100, higher is better)
+# Primary metric: doc_score (composite 0-100, higher is better)
 # Secondary metrics:
-#   - heading_structure_score (0-25)
-#   - content_depth_score (0-25)
-#   - keyword_richness_score (0-25)
-#   - technical_seo_score (0-25)
+#   - jsdoc_coverage_score (0-25)
+#   - file_header_score (0-25)
+#   - inline_comment_score (0-25)
+#   - type_doc_score (0-25)
 #
 # Exit code: 0 = success, non-zero = failure
 
 set -euo pipefail
 
+SRC_DIR="src"
 README="README.md"
 PKG="package.json"
 
-# Ensure README exists
-if [[ ! -f "$README" ]]; then
-  echo "METRIC seo_score=0"
-  echo "ASI error=readme_missing"
+# Ensure src directory exists
+if [[ ! -d "$SRC_DIR" ]]; then
+  echo "METRIC doc_score=0"
+  echo "ASI error=src_dir_missing"
   exit 1
 fi
 
-# Read content
-CONTENT=$(cat "$README")
-LINES=$(echo "$CONTENT" | wc -l | tr -d ' ')
-WORDS=$(echo "$CONTENT" | wc -w | tr -d ' ')
-
-# Count headings
-H1_COUNT=$(echo "$CONTENT" | grep -c '^# ' || true)
-H2_COUNT=$(echo "$CONTENT" | grep -c '^## ' || true)
-H3_COUNT=$(echo "$CONTENT" | grep -c '^### ' || true)
-TOTAL_HEADINGS=$((H1_COUNT + H2_COUNT + H3_COUNT))
-
-# Check for key sections
-HAS_INSTALLATION=$(echo "$CONTENT" | grep -ciE 'install|getting started|quick start' || true)
-HAS_USAGE=$(echo "$CONTENT" | grep -ciE 'usage|example|how to|quick start' || true)
-HAS_FEATURES=$(echo "$CONTENT" | grep -ciE 'feature|overview|what' || true)
-HAS_LICENSE=$(echo "$CONTENT" | grep -ciE 'license|licence' || true)
-HAS_LINKS=$(echo "$CONTENT" | grep -cE '\[.*\]\(.*\)' || true)
-HAS_BADGES=$(echo "$CONTENT" | grep -cE '!\[.*\]\(.*\)' || true)
-HAS_CODE_BLOCKS=$(echo "$CONTENT" | grep -c '^\s*\`\`\`' || true)
-HAS_TABLE=$(echo "$CONTENT" | grep -cE '^\|.*\|' || true)
-HAS_TOC=$(echo "$CONTENT" | grep -ciE 'table of contents|toc|contents' || true)
-
-# Keyword analysis - target keywords for an opencode plugin
-KEYWORDS=("opencode" "plugin" "autoresearch" "benchmark" "optimize" "experiment" "automated")
-KEYWORD_SCORE=0
-for kw in "${KEYWORDS[@]}"; do
-  COUNT=$(echo "$CONTENT" | grep -ci "$kw" || true)
-  if [[ "$COUNT" -gt 0 ]]; then
-    KEYWORD_SCORE=$((KEYWORD_SCORE + 1))
-  fi
+# Count total TypeScript source files (excluding tests)
+TOTAL_FILES=0
+for file in $(find "$SRC_DIR" -name "*.ts" -not -name "*.test.ts" -not -name "*.spec.ts" | sort); do
+  TOTAL_FILES=$((TOTAL_FILES + 1))
 done
 
-# Package.json keywords
-PKG_KEYWORDS=0
-if [[ -f "$PKG" ]]; then
-  PKG_KEYWORDS=$(grep -c '"keywords"' "$PKG" || true)
+if [[ "$TOTAL_FILES" -eq 0 ]]; then
+  echo "METRIC doc_score=0"
+  echo "ASI error=no_ts_files"
+  exit 1
 fi
 
-# --- Compute sub-scores ---
+# Initialize counters
+TOTAL_EXPORTED=0
+EXPORTED_WITH_JSDOC=0
+FILES_WITH_HEADER=0
+TOTAL_COMMENT_LINES=0
+TOTAL_CODE_LINES=0
 
-# Heading structure (0-25)
-HEADING_SCORE=0
-[[ "$H1_COUNT" -ge 1 ]] && HEADING_SCORE=$((HEADING_SCORE + 5))
-[[ "$H2_COUNT" -ge 3 ]] && HEADING_SCORE=$((HEADING_SCORE + 5))
-[[ "$H3_COUNT" -ge 2 ]] && HEADING_SCORE=$((HEADING_SCORE + 5))
-[[ "$TOTAL_HEADINGS" -ge 5 ]] && HEADING_SCORE=$((HEADING_SCORE + 5))
-[[ "$HAS_TOC" -gt 0 ]] && HEADING_SCORE=$((HEADING_SCORE + 5))
+# Process each file
+for file in $(find "$SRC_DIR" -name "*.ts" -not -name "*.test.ts" -not -name "*.spec.ts" | sort); do
+  content=$(cat "$file")
+  lines=$(wc -l < "$file" | tr -d ' ')
+  
+  # File header documentation (first 5 lines contain descriptive comment)
+  header=$(head -n 5 "$file")
+  has_comment=$(echo "$header" | grep -cE '^[[:space:]]*(\/\/|\/\*\*)' || true)
+  if [[ "$has_comment" -gt 0 ]]; then
+    # Check if header has a meaningful description
+    meaningful=$(echo "$header" | grep -ciE 'description|purpose|overview|summary|documentation|doc|provides|implements|handles|manages' || true)
+    if [[ "$meaningful" -gt 0 ]]; then
+      FILES_WITH_HEADER=$((FILES_WITH_HEADER + 1))
+    fi
+  fi
+  
+  # Count comment lines
+  comment_lines=$(grep -cE '^[[:space:]]*(\/\/|\/\*\*)' "$file" || true)
+  TOTAL_COMMENT_LINES=$((TOTAL_COMMENT_LINES + comment_lines))
+  
+  # Count code lines
+  code_lines=$(grep -cE '^[[:space:]]*(export|import|function|const|let|var|type|interface|class|if|for|while|switch|return)' "$file" || true)
+  TOTAL_CODE_LINES=$((TOTAL_CODE_LINES + code_lines))
+  
+  # Count exported functions
+  exported_funcs=$(grep -cE '^[[:space:]]*export[[:space:]]+(async[[:space:]]+)?function[[:space:]]+[a-zA-Z_]' "$file" || true)
+  TOTAL_EXPORTED=$((TOTAL_EXPORTED + exported_funcs))
+  
+  # Count JSDoc blocks (/** at start of line)
+  jsdoc_blocks=$(grep -cE '^[[:space:]]*\/\*\*' "$file" || true)
+  EXPORTED_WITH_JSDOC=$((EXPORTED_WITH_JSDOC + jsdoc_blocks))
+done
 
-# Content depth (0-25)
-DEPTH_SCORE=0
-[[ "$WORDS" -ge 100 ]] && DEPTH_SCORE=$((DEPTH_SCORE + 5))
-[[ "$WORDS" -ge 300 ]] && DEPTH_SCORE=$((DEPTH_SCORE + 5))
-[[ "$WORDS" -ge 500 ]] && DEPTH_SCORE=$((DEPTH_SCORE + 5))
-[[ "$HAS_CODE_BLOCKS" -gt 0 ]] && DEPTH_SCORE=$((DEPTH_SCORE + 5))
-[[ "$HAS_TABLE" -gt 0 ]] && DEPTH_SCORE=$((DEPTH_SCORE + 5))
+# Cap JSDOC count at exported functions count
+if [[ "$EXPORTED_WITH_JSDOC" -gt "$TOTAL_EXPORTED" ]]; then
+  EXPORTED_WITH_JSDOC=$TOTAL_EXPORTED
+fi
 
-# Keyword richness (0-25)
-KEYWORD_RICHNESS=$((KEYWORD_SCORE * 3))
-[[ "$KEYWORD_RICHNESS" -gt 25 ]] && KEYWORD_RICHNESS=25
-[[ "$PKG_KEYWORDS" -gt 0 ]] && KEYWORD_RICHNESS=$((KEYWORD_RICHNESS + 5))
-[[ "$KEYWORD_RICHNESS" -gt 25 ]] && KEYWORD_RICHNESS=25
+# Calculate file header score (0-25)
+FILE_HEADER_SCORE=0
+if [[ "$TOTAL_FILES" -gt 0 ]]; then
+  header_ratio=$((FILES_WITH_HEADER * 100 / TOTAL_FILES))
+  if [[ "$header_ratio" -ge 20 ]]; then FILE_HEADER_SCORE=5; fi
+  if [[ "$header_ratio" -ge 40 ]]; then FILE_HEADER_SCORE=10; fi
+  if [[ "$header_ratio" -ge 60 ]]; then FILE_HEADER_SCORE=15; fi
+  if [[ "$header_ratio" -ge 80 ]]; then FILE_HEADER_SCORE=20; fi
+  if [[ "$header_ratio" -ge 95 ]]; then FILE_HEADER_SCORE=25; fi
+fi
 
-# Technical SEO (0-25)
-TECH_SCORE=0
-[[ "$HAS_INSTALLATION" -gt 0 ]] && TECH_SCORE=$((TECH_SCORE + 5))
-[[ "$HAS_USAGE" -gt 0 ]] && TECH_SCORE=$((TECH_SCORE + 5))
-[[ "$HAS_FEATURES" -gt 0 ]] && TECH_SCORE=$((TECH_SCORE + 5))
-[[ "$HAS_LICENSE" -gt 0 ]] && TECH_SCORE=$((TECH_SCORE + 5))
-[[ "$HAS_LINKS" -gt 0 ]] && TECH_SCORE=$((TECH_SCORE + 5))
+# Calculate JSDoc coverage score (0-25)
+JSDOC_SCORE=0
+if [[ "$TOTAL_EXPORTED" -gt 0 ]]; then
+  jsdoc_ratio=$((EXPORTED_WITH_JSDOC * 100 / TOTAL_EXPORTED))
+  if [[ "$jsdoc_ratio" -ge 20 ]]; then JSDOC_SCORE=5; fi
+  if [[ "$jsdoc_ratio" -ge 40 ]]; then JSDOC_SCORE=10; fi
+  if [[ "$jsdoc_ratio" -ge 60 ]]; then JSDOC_SCORE=15; fi
+  if [[ "$jsdoc_ratio" -ge 80 ]]; then JSDOC_SCORE=20; fi
+  if [[ "$jsdoc_ratio" -ge 95 ]]; then JSDOC_SCORE=25; fi
+fi
+
+# Calculate inline comment score (0-25)
+INLINE_COMMENT_SCORE=0
+comment_ratio=0
+if [[ "$TOTAL_CODE_LINES" -gt 0 ]]; then
+  comment_ratio=$((TOTAL_COMMENT_LINES * 100 / TOTAL_CODE_LINES))
+  if [[ "$comment_ratio" -ge 5 ]]; then INLINE_COMMENT_SCORE=5; fi
+  if [[ "$comment_ratio" -ge 10 ]]; then INLINE_COMMENT_SCORE=10; fi
+  if [[ "$comment_ratio" -ge 15 ]]; then INLINE_COMMENT_SCORE=15; fi
+  if [[ "$comment_ratio" -ge 20 ]]; then INLINE_COMMENT_SCORE=20; fi
+  if [[ "$comment_ratio" -ge 25 ]]; then INLINE_COMMENT_SCORE=25; fi
+fi
+
+# Calculate type documentation score (0-25)
+TOTAL_TYPES=0
+TYPED_TYPES=0
+TYPE_DOC_SCORE=0
+
+# Count interfaces and types - use || true to prevent exit on no matches
+TOTAL_TYPES=$(find "$SRC_DIR" -name "*.ts" -not -name "*.test.ts" -exec grep -HE '^[[:space:]]*(export[[:space:]]+)?(interface|type)[[:space:]]+[a-zA-Z_]' {} + 2>/dev/null | wc -l | tr -d ' ' || true)
+TYPED_TYPES=$(find "$SRC_DIR" -name "*.ts" -not -name "*.test.ts" -exec grep -HE '^[[:space:]]*\/\*\*' {} + 2>/dev/null | wc -l | tr -d ' ' || true)
+
+# Ensure numeric values
+TOTAL_TYPES=${TOTAL_TYPES:-0}
+TYPED_TYPES=${TYPED_TYPES:-0}
+
+if [[ "$TOTAL_TYPES" -gt 0 ]]; then
+  type_doc_ratio=$((TYPED_TYPES * 100 / TOTAL_TYPES))
+  if [[ "$type_doc_ratio" -ge 20 ]]; then TYPE_DOC_SCORE=5; fi
+  if [[ "$type_doc_ratio" -ge 40 ]]; then TYPE_DOC_SCORE=10; fi
+  if [[ "$type_doc_ratio" -ge 60 ]]; then TYPE_DOC_SCORE=15; fi
+  if [[ "$type_doc_ratio" -ge 80 ]]; then TYPE_DOC_SCORE=20; fi
+  if [[ "$type_doc_ratio" -ge 95 ]]; then TYPE_DOC_SCORE=25; fi
+fi
 
 # Composite score
-SEO_SCORE=$((HEADING_SCORE + DEPTH_SCORE + KEYWORD_RICHNESS + TECH_SCORE))
+DOC_SCORE=$((FILE_HEADER_SCORE + JSDOC_SCORE + INLINE_COMMENT_SCORE + TYPE_DOC_SCORE))
 
 # Emit metrics
-echo "METRIC seo_score=${SEO_SCORE}"
-echo "METRIC heading_structure_score=${HEADING_SCORE}"
-echo "METRIC content_depth_score=${DEPTH_SCORE}"
-echo "METRIC keyword_richness_score=${KEYWORD_RICHNESS}"
-echo "METRIC technical_seo_score=${TECH_SCORE}"
-echo "METRIC word_count=${WORDS}"
-echo "METRIC heading_count=${TOTAL_HEADINGS}"
+echo "METRIC doc_score=${DOC_SCORE}"
+echo "METRIC file_header_score=${FILE_HEADER_SCORE}"
+echo "METRIC jsdoc_coverage_score=${JSDOC_SCORE}"
+echo "METRIC inline_comment_score=${INLINE_COMMENT_SCORE}"
+echo "METRIC type_doc_score=${TYPE_DOC_SCORE}"
+echo "METRIC total_files=${TOTAL_FILES}"
+echo "METRIC files_with_headers=${FILES_WITH_HEADER}"
+echo "METRIC total_exported_functions=${TOTAL_EXPORTED}"
+echo "METRIC exported_with_jsdoc=${EXPORTED_WITH_JSDOC}"
+echo "METRIC total_comment_lines=${TOTAL_COMMENT_LINES}"
+echo "METRIC total_code_lines=${TOTAL_CODE_LINES}"
+echo "METRIC total_types=${TOTAL_TYPES}"
+echo "METRIC typed_types=${TYPED_TYPES}"
 
 # Emit ASI
-echo "ASI primary_metric=seo_score"
+echo "ASI primary_metric=doc_score"
 echo "ASI direction=higher"
-echo "ASI goal=improve_readme_seo"
-echo "ASI h1_count=${H1_COUNT}"
-echo "ASI h2_count=${H2_COUNT}"
-echo "ASI h3_count=${H3_COUNT}"
-echo "ASI has_installation=${HAS_INSTALLATION}"
-echo "ASI has_usage=${HAS_USAGE}"
-echo "ASI has_features=${HAS_FEATURES}"
-echo "ASI has_license=${HAS_LICENSE}"
-echo "ASI has_links=${HAS_LINKS}"
-echo "ASI has_badges=${HAS_BADGES}"
-echo "ASI has_code_blocks=${HAS_CODE_BLOCKS}"
-echo "ASI has_table=${HAS_TABLE}"
-echo "ASI has_toc=${HAS_TOC}"
-echo "ASI pkg_keywords=${PKG_KEYWORDS}"
-echo "ASI keyword_matches=${KEYWORD_SCORE}"
+echo "ASI goal=improve_codebase_documentation"
+echo "ASI total_files=${TOTAL_FILES}"
+echo "ASI files_with_headers=${FILES_WITH_HEADER}"
+echo "ASI total_exported_functions=${TOTAL_EXPORTED}"
+echo "ASI exported_with_jsdoc=${EXPORTED_WITH_JSDOC}"
+echo "ASI total_comment_lines=${TOTAL_COMMENT_LINES}"
+echo "ASI total_code_lines=${TOTAL_CODE_LINES}"
+echo "ASI comment_ratio=${comment_ratio}"
+echo "ASI total_types=${TOTAL_TYPES}"
+echo "ASI typed_types=${TYPED_TYPES}"
 
 exit 0
