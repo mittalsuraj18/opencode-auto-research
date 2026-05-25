@@ -1,6 +1,11 @@
 # @mittalsuraj18/opencode-auto-research
 
-An autoresearch plugin for OpenCode that implements an automated benchmark-driven optimization loop.
+[![npm version](https://img.shields.io/npm/v/@mittalsuraj18/opencode-auto-research.svg)](https://www.npmjs.com/package/@mittalsuraj18/opencode-auto-research)
+[![npm downloads](https://img.shields.io/npm/dm/@mittalsuraj18/opencode-auto-research.svg)](https://www.npmjs.com/package/@mittalsuraj18/opencode-auto-research)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub issues](https://img.shields.io/github/issues/mittalsuraj18/opencode-auto-research.svg)](https://github.com/mittalsuraj18/opencode-auto-research/issues)
+
+An [autoresearch](https://github.com/mittalsuraj18/opencode-auto-research) plugin for [OpenCode](https://opencode.ai) that implements an automated benchmark-driven optimization loop.
 
 ## Overview
 
