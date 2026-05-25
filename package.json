@@ -1,0 +1,34 @@
+{
+  "name": "@mittalsuraj18/opencode-auto-research",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Autoresearch plugin for OpenCode - automated benchmark-driven optimization loop",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "src/prompts"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "bun test --timeout 30000",
+    "prepublishOnly": "bun run build && bun test"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "autoresearch",
+    "benchmark",
+    "optimization",
+    "experiment"
+  ],
+  "dependencies": {
+    "@opencode-ai/plugin": "^1.14.0",
+    "zod": "4.1.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/bun": "latest"
+  }
+}
