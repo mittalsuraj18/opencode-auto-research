@@ -7,6 +7,7 @@ import { createInitExperimentTool } from "../../src/tools/init-experiment";
 import { AutoresearchStorage } from "../../src/storage";
 import { createExperimentState } from "../../src/state";
 import type { AutoresearchRuntime } from "../../src/types";
+import { cleanupTestDir } from "../test-helpers";
 
 async function initGitRepo(dir: string): Promise<void> {
 	await $`git -C ${dir} init`;
@@ -65,7 +66,7 @@ describe("createInitExperimentTool", () => {
 		expect(runtime.state.offLimits).toEqual(["dist"]);
 
 		storage.close();
-		fs.rmSync(dir, { recursive: true, force: true });
+		cleanupTestDir(dir);
 	});
 
 	it("initializes with lower direction", async () => {
@@ -100,7 +101,7 @@ describe("createInitExperimentTool", () => {
 		expect(result.output).toContain("lower is better");
 
 		storage.close();
-		fs.rmSync(dir, { recursive: true, force: true });
+		cleanupTestDir(dir);
 	});
 
 	it("creates autoresearch.md file", async () => {
@@ -141,7 +142,7 @@ describe("createInitExperimentTool", () => {
 		expect(content).toContain("test_coverage_pct");
 
 		storage.close();
-		fs.rmSync(dir, { recursive: true, force: true });
+		cleanupTestDir(dir);
 	});
 
 	it("does not overwrite existing autoresearch.md", async () => {
@@ -177,7 +178,7 @@ describe("createInitExperimentTool", () => {
 		expect(fs.existsSync(path.join(dir, "autoresearch.md"))).toBe(true);
 
 		storage.close();
-		fs.rmSync(dir, { recursive: true, force: true });
+		cleanupTestDir(dir);
 	});
 
 	it("warns when autoresearch.sh is missing", async () => {
@@ -209,7 +210,7 @@ describe("createInitExperimentTool", () => {
 		expect(result.output).toContain("autoresearch.sh not found");
 
 		storage.close();
-		fs.rmSync(dir, { recursive: true, force: true });
+		cleanupTestDir(dir);
 	});
 
 	it("deduplicates scope_paths and off_limits", async () => {
@@ -247,7 +248,7 @@ describe("createInitExperimentTool", () => {
 		expect(runtime.state.scopePaths).toEqual(["src", "test"]);
 
 		storage.close();
-		fs.rmSync(dir, { recursive: true, force: true });
+		cleanupTestDir(dir);
 	});
 
 	it("sets runtime state correctly", async () => {
@@ -293,7 +294,7 @@ describe("createInitExperimentTool", () => {
 		expect(runtime.state.maxExperiments).toBe(5);
 
 		storage.close();
-		fs.rmSync(dir, { recursive: true, force: true });
+		cleanupTestDir(dir);
 	});
 
 	it("handles no goal provided", async () => {
@@ -329,7 +330,7 @@ describe("createInitExperimentTool", () => {
 		expect(runtime.goal).toBeNull();
 
 		storage.close();
-		fs.rmSync(dir, { recursive: true, force: true });
+		cleanupTestDir(dir);
 	});
 
 	it("returns metadata with session info", async () => {
@@ -366,7 +367,7 @@ describe("createInitExperimentTool", () => {
 		expect(result.metadata.harnessExists).toBe(true);
 
 		storage.close();
-		fs.rmSync(dir, { recursive: true, force: true });
+		cleanupTestDir(dir);
 	});
 
 	it("returns error when branch creation fails (dirty worktree)", async () => {
@@ -400,6 +401,6 @@ describe("createInitExperimentTool", () => {
 		expect(result.output).toContain("Failed to initialize");
 
 		storage.close();
-		fs.rmSync(dir, { recursive: true, force: true });
+		cleanupTestDir(dir);
 	});
 });

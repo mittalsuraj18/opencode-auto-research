@@ -6,6 +6,7 @@ import { createRunExperimentTool } from "../../src/tools/run-experiment";
 import { AutoresearchStorage } from "../../src/storage";
 import { createExperimentState } from "../../src/state";
 import type { AutoresearchRuntime } from "../../src/types";
+import { cleanupTestDir } from "../test-helpers";
 
 function createTestEnv() {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "autoresearch-run-exp-test-"));
@@ -57,7 +58,7 @@ function createTestEnv() {
 		tool,
 		cleanup: () => {
 			storage.close();
-			fs.rmSync(dir, { recursive: true, force: true });
+			cleanupTestDir(dir);
 		},
 	};
 }
@@ -97,7 +98,7 @@ describe("createRunExperimentTool", () => {
 		const result = await tool.execute({});
 		expect(result.metadata.error).toBe("harness_missing");
 		storage.close();
-		fs.rmSync(dir, { recursive: true, force: true });
+		cleanupTestDir(dir);
 	});
 
 	it("returns error when no active session", async () => {
@@ -124,7 +125,7 @@ describe("createRunExperimentTool", () => {
 		const result = await tool.execute({});
 		expect(result.metadata.error).toBe("no_session");
 		storage.close();
-		fs.rmSync(dir, { recursive: true, force: true });
+		cleanupTestDir(dir);
 	});
 
 	it("warns when a pending run exists", async () => {

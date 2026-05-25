@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import plugin from "../../src/index";
+import { cleanupTestDir } from "../test-helpers";
 
 // ─── Test Helpers ───────────────────────────────────────────────────────────
 
@@ -11,7 +12,7 @@ function createTestDir(): { dir: string; cleanup: () => void } {
 	return {
 		dir,
 		cleanup: () => {
-			fs.rmSync(dir, { recursive: true, force: true });
+			cleanupTestDir(dir);
 		},
 	};
 }

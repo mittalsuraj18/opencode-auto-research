@@ -7,6 +7,7 @@ import { createLogExperimentTool } from "../../src/tools/log-experiment";
 import { AutoresearchStorage } from "../../src/storage";
 import { createExperimentState } from "../../src/state";
 import type { AutoresearchRuntime } from "../../src/types";
+import { cleanupTestDir } from "../test-helpers";
 
 async function initGitRepo(dir: string): Promise<void> {
 	await $`git -C ${dir} init`;
@@ -25,7 +26,7 @@ function makeDbPath(): string {
 }
 
 function cleanupDir(dir: string) {
-	fs.rmSync(dir, { recursive: true, force: true });
+	cleanupTestDir(dir);
 }
 
 describe("createLogExperimentTool — scope deviations", () => {

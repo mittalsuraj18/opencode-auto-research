@@ -6,14 +6,15 @@ import { $ } from "bun";
 import plugin from "../../src/index";
 import { AutoresearchStorage, openAutoresearchStorage } from "../../src/storage";
 import type { AutoresearchRuntime } from "../../src/types";
+import { cleanupTestDir } from "../test-helpers";
 
 async function initGitRepo(dir: string): Promise<void> {
-	await $`git -C ${dir} init`;
-	await $`git -C ${dir} config user.email "test@test.com"`;
-	await $`git -C ${dir} config user.name "Test"`;
+	await $`git -C ${dir} init`.quiet();
+	await $`git -C ${dir} config user.email "test@test.com"`.quiet();
+	await $`git -C ${dir} config user.name "Test"`.quiet();
 	fs.writeFileSync(path.join(dir, "README.md"), "# Test");
-	await $`git -C ${dir} add README.md`;
-	await $`git -C ${dir} commit -m "Initial commit"`;
+	await $`git -C ${dir} add README.md`.quiet();
+	await $`git -C ${dir} commit -m "Initial commit"`.quiet();
 }
 
 function createTrackingClient() {
@@ -117,8 +118,7 @@ describe("Plugin index.ts — rehydration and internal paths", () => {
 		expect(compactionOutput.context[0]).toContain("Baseline");
 
 		// Cleanup
-		fs.rmSync(dir, { recursive: true, force: true });
-		if (fs.existsSync(dbPath)) fs.rmSync(dbPath, { force: true });
+		cleanupTestDir(dir);
 	});
 
 	it("builds compaction context with results and notes", async () => {
@@ -168,7 +168,7 @@ describe("Plugin index.ts — rehydration and internal paths", () => {
 		expect(compactionOutput.context[0]).toContain("compile_time_ms");
 		expect(compactionOutput.context[0]).toContain("Baseline");
 
-		fs.rmSync(dir, { recursive: true, force: true });
+		cleanupTestDir(dir);
 	});
 
 	it("compaction context shows best result and notes", async () => {
@@ -211,7 +211,7 @@ describe("Plugin index.ts — rehydration and internal paths", () => {
 		await pluginInstance["experimental.session.compacting"]!({}, compactionOutput);
 		expect(compactionOutput.context[0]).toContain("Best Result");
 
-		fs.rmSync(dir, { recursive: true, force: true });
+		cleanupTestDir(dir);
 	});
 
 	it("system prompt shows pending run warning", async () => {
@@ -241,7 +241,7 @@ describe("Plugin index.ts — rehydration and internal paths", () => {
 		expect(systemOutput.system.length).toBeGreaterThan(0);
 		expect(systemOutput.system[0]).toContain("pending");
 
-		fs.rmSync(dir, { recursive: true, force: true });
+		cleanupTestDir(dir);
 	});
 
 	it("command.execute.before handles missing text part with fallback", async () => {
@@ -267,7 +267,7 @@ describe("Plugin index.ts — rehydration and internal paths", () => {
 		expect(output.parts[0].type).toBe("text");
 		expect(output.parts[0].text).toContain("Start an autoresearch experiment");
 
-		fs.rmSync(dir, { recursive: true, force: true });
+		cleanupTestDir(dir);
 	});
 
 	it("command.execute.before ignores non-autoresearch commands", async () => {
@@ -290,7 +290,7 @@ describe("Plugin index.ts — rehydration and internal paths", () => {
 		// Should not have modified the parts
 		expect(output.parts[0].text).toBe("original");
 
-		fs.rmSync(dir, { recursive: true, force: true });
+		cleanupTestDir(dir);
 	});
 
 	it("auto-continue is not enabled when mode is off", async () => {
@@ -303,7 +303,7 @@ describe("Plugin index.ts — rehydration and internal paths", () => {
 		await pluginInstance["experimental.compaction.autocontinue"]!({}, autocontinueOutput);
 		expect(autocontinueOutput.enabled).toBe(false);
 
-		fs.rmSync(dir, { recursive: true, force: true });
+		cleanupTestDir(dir);
 	});
 
 	it("system prompt is not injected when mode is off", async () => {
@@ -316,7 +316,7 @@ describe("Plugin index.ts — rehydration and internal paths", () => {
 		await pluginInstance["experimental.chat.system.transform"]!({}, systemOutput);
 		expect(systemOutput.system.length).toBe(0);
 
-		fs.rmSync(dir, { recursive: true, force: true });
+		cleanupTestDir(dir);
 	});
 
 	it("compaction context is not injected when mode is off", async () => {
@@ -329,7 +329,7 @@ describe("Plugin index.ts — rehydration and internal paths", () => {
 		await pluginInstance["experimental.session.compacting"]!({}, compactionOutput);
 		expect(compactionOutput.context.length).toBe(0);
 
-		fs.rmSync(dir, { recursive: true, force: true });
+		cleanupTestDir(dir);
 	});
 
 	it("tracks model from chat params", async () => {
@@ -352,7 +352,7 @@ describe("Plugin index.ts — rehydration and internal paths", () => {
 		// The model tracking is internal, but we can verify it doesn't error
 		expect(true).toBe(true);
 
-		fs.rmSync(dir, { recursive: true, force: true });
+		cleanupTestDir(dir);
 	});
 
 	it("event handler triggers compaction after log_experiment", async () => {
@@ -404,6 +404,6 @@ describe("Plugin index.ts — rehydration and internal paths", () => {
 
 		expect(summarizeCalls.length).toBeGreaterThan(0);
 
-		fs.rmSync(dir, { recursive: true, force: true });
+		cleanupTestDir(dir);
 	});
 });

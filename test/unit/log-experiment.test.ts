@@ -6,6 +6,7 @@ import { createLogExperimentTool } from "../../src/tools/log-experiment";
 import { AutoresearchStorage } from "../../src/storage";
 import { createExperimentState } from "../../src/state";
 import type { AutoresearchRuntime, PendingRunSummary } from "../../src/types";
+import { cleanupTestDir } from "../test-helpers";
 
 function createTestEnv() {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "autoresearch-log-exp-test-"));
@@ -52,7 +53,7 @@ function createTestEnv() {
 		tool,
 		cleanup: () => {
 			storage.close();
-			fs.rmSync(dir, { recursive: true, force: true });
+			cleanupTestDir(dir);
 		},
 	};
 }
@@ -77,7 +78,7 @@ describe("createLogExperimentTool", () => {
 		const result = await tool.execute({ metric: 80, status: "keep", description: "Test" });
 		expect(result.metadata.error).toBe("no_session");
 		storage.close();
-		fs.rmSync(dir, { recursive: true, force: true });
+		cleanupTestDir(dir);
 	});
 
 	it("returns error when no pending run", async () => {
