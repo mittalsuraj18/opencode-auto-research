@@ -111,7 +111,7 @@ export function createRunExperimentTool({
 				const proc = Bun.spawn(["bash", "autoresearch.sh"], {
 					cwd: directory,
 					timeout: args.timeout_seconds * 1000,
-					stdio: ["inherit", "pipe", "pipe"],
+					stdio: ["ignore", "pipe", "pipe"],
 				});
 
 				const stdout = await new Response(proc.stdout).text();
