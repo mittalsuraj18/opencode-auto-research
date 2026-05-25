@@ -415,7 +415,18 @@ describe("Plugin E2E — Full Experiment Loop", () => {
 			const pluginInstance = await plugin({ client, directory: dir });
 
 			const sessionID = `test-session-${Date.now()}`;
-			const output = { parts: [] as any[] };
+			// Simulate what opencode provides: parts with a text part from the command template
+			const output = {
+				parts: [
+					{
+						type: "text",
+						id: "prt_test_001",
+						sessionID,
+						messageID: "msg_test_001",
+						text: "autoresearch\n\noptimize compile time",
+					},
+				] as any[],
+			};
 
 			await pluginInstance["command.execute.before"]!(
 				{
@@ -426,11 +437,14 @@ describe("Plugin E2E — Full Experiment Loop", () => {
 				output,
 			);
 
-			// The hook should replace parts with our custom prompt
+			// The hook should modify the existing text part's content
 			expect(output.parts.length).toBe(1);
 			expect(output.parts[0].type).toBe("text");
 			expect(output.parts[0].text).toContain("optimize compile time");
 			expect(output.parts[0].text).toContain("Start an autoresearch experiment");
+			// The original metadata should be preserved
+			expect(output.parts[0].id).toBe("prt_test_001");
+			expect(output.parts[0].sessionID).toBe(sessionID);
 
 			cleanup();
 		});
@@ -464,7 +478,17 @@ describe("Plugin E2E — Full Experiment Loop", () => {
 
 			// Now resume with a new session
 			const resumeSessionID = `test-session-${Date.now() + 1}`;
-			const output = { parts: [] as any[] };
+			const output = {
+				parts: [
+					{
+						type: "text",
+						id: "prt_test_002",
+						sessionID: resumeSessionID,
+						messageID: "msg_test_002",
+						text: "autoresearch",
+					},
+				] as any[],
+			};
 
 			await pluginInstance["command.execute.before"]!(
 				{
@@ -475,11 +499,13 @@ describe("Plugin E2E — Full Experiment Loop", () => {
 				output,
 			);
 
-			// The hook should replace parts with a resume prompt
+			// The hook should modify the existing text part with a resume prompt
 			expect(output.parts.length).toBe(1);
 			expect(output.parts[0].type).toBe("text");
 			expect(output.parts[0].text).toContain("Continue autoresearch experiment");
 			expect(output.parts[0].text).toContain("ActiveTest");
+			// The original metadata should be preserved
+			expect(output.parts[0].id).toBe("prt_test_002");
 
 			cleanup();
 		});

@@ -106,9 +106,8 @@ export default (async ({ client, directory }) => {
 		},
 
 		// Handle /autoresearch command execution
-		// Instead of throwing a sentinel error (which crashes the HTTP handler),
-		// we replace the command's parts with our custom prompt so the agent
-		// receives our instructions naturally.
+		// We modify output.parts in-place: find the first text part and replace
+		// its content with our custom prompt, preserving all metadata (id, sessionID, messageID).
 		"command.execute.before": async (input, output) => {
 			if (input.command !== "autoresearch") return;
 
@@ -128,18 +127,21 @@ export default (async ({ client, directory }) => {
 					: "Start an autoresearch experiment. Create autoresearch.sh if missing. Call init_experiment with appropriate benchmark name and metric. Run baseline, log it as keep, then continue optimizing.";
 			}
 
-			// Replace the command's parts with our custom prompt.
-			// The command.execute.before hook receives { parts } as output,
-			// and whatever we put in parts becomes what the agent sees.
-			if (output && output.parts) {
-				output.parts.length = 0; // Clear existing parts
-				output.parts.push({
-					type: "text",
-					id: `autoresearch-${Date.now()}`,
-					sessionID: input.sessionID,
-					messageID: `msg-${Date.now()}`,
-					text: promptText,
-				});
+			// Replace the text content of the command's parts with our custom prompt.
+			// We preserve the existing part structure (id, sessionID, messageID) to
+			// avoid format issues with opencode's internal schema validation.
+			if (output?.parts) {
+				const textPart = output.parts.find((p: any) => p.type === "text");
+				if (textPart) {
+					// Modify the existing text part in-place
+					(textPart as any).text = promptText;
+				} else {
+					// Fallback: push a new text part (shouldn't normally happen)
+					output.parts.push({
+						type: "text",
+						text: promptText,
+					} as any);
+				}
 			}
 		},
 
