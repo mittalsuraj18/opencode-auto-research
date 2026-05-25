@@ -20,3 +20,4 @@ TBD
 | 4 | keep | 96.6 | Added extensive tests: index.ts rehydration + command hooks (75%→97%), log-experiment.ts scope deviations + git ops (82%→95%), state.ts secondary metrics (97%→100%), git.ts add + collect (85%→94%). Overall 91.53%→96.60%. |
 | 2 | keep | 95 | Baseline SEO score of current README before optimizations |
 | 3 | keep | 100 | Added npm badges and project links to README; achieved perfect SEO score |
+| 2 | keep | 10 | Baseline documentation score: 10/100. File headers: 0/10, JSDoc: 0/51 functions, Comment ratio: 11%, Types documented: 0/22 |

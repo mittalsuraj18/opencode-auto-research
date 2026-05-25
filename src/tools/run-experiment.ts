@@ -1,4 +1,9 @@
-// tools/run-experiment.ts
+/**
+ * @file tools/run-experiment.ts
+ * @description Provides the run_experiment tool for executing benchmark harnesses.
+ * Manages benchmark execution, output parsing, and modified file tracking.
+ */
+
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { $ } from "bun";
@@ -14,6 +19,13 @@ import {
 	computeRunModifiedPaths,
 } from "../helpers";
 
+/**
+ * Creates the run_experiment tool for executing benchmarks.
+ * @param storage - AutoresearchStorage instance for persistence
+ * @param runtime - AutoresearchRuntime for managing active state
+ * @param directory - Project directory path
+ * @returns Configured tool instance
+ */
 export function createRunExperimentTool({
 	storage,
 	runtime,

@@ -1,5 +1,8 @@
-// state.ts
-// Experiment state builders and confidence computation.
+/**
+ * @file state.ts
+ * @description Provides experiment state builders and statistical confidence computation.
+ * Manages experiment results aggregation and baseline tracking.
+ */
 
 import type {
 	ExperimentResult,
@@ -10,6 +13,10 @@ import type {
 } from "./types";
 import { inferMetricUnitFromName, isBetter } from "./helpers";
 
+/**
+ * Creates a fresh experiment state with default values.
+ * @returns New ExperimentState instance
+ */
 export function createExperimentState(): ExperimentState {
 	return {
 		name: "",
@@ -33,10 +40,22 @@ export function createExperimentState(): ExperimentState {
 	};
 }
 
+/**
+ * Filters experiment results to include only those from the specified segment.
+ * @param results - All experiment results
+ * @param segment - Segment number to filter by
+ * @returns Filtered results for the segment
+ */
 export function currentResults(results: ExperimentResult[], segment: number): ExperimentResult[] {
 	return results.filter((result) => result.segment === segment);
 }
 
+/**
+ * Finds the baseline result (first kept run with positive metric) in a segment.
+ * @param results - All experiment results
+ * @param segment - Segment number to search
+ * @returns The baseline result, or null if none found
+ */
 export function findBaselineResult(results: ExperimentResult[], segment: number): ExperimentResult | null {
 	const current = currentResults(results, segment);
 	for (const result of current) {
@@ -47,17 +66,36 @@ export function findBaselineResult(results: ExperimentResult[], segment: number)
 	return null;
 }
 
+/**
+ * Extracts the baseline metric value from results in a segment.
+ * @param results - All experiment results
+ * @param segment - Segment number to search
+ * @returns Baseline metric value, or null if no baseline exists
+ */
 export function findBaselineMetric(results: ExperimentResult[], segment: number): number | null {
 	const baseline = findBaselineResult(results, segment);
 	return baseline ? baseline.metric : null;
 }
 
+/**
+ * Gets the run number of the baseline result in a segment.
+ * @param results - All experiment results
+ * @param segment - Segment number to search
+ * @returns Baseline run number, or null if no baseline exists
+ */
 export function findBaselineRunNumber(results: ExperimentResult[], segment: number): number | null {
 	const baseline = findBaselineResult(results, segment);
 	if (!baseline) return null;
 	return baseline.runNumber;
 }
 
+/**
+ * Collects secondary metric values from results in a segment, falling back to baseline.
+ * @param results - All experiment results
+ * @param segment - Segment number to search
+ * @param knownMetrics - List of known secondary metric definitions
+ * @returns Map of secondary metric names to their values
+ */
 export function findBaselineSecondary(
 	results: ExperimentResult[],
 	segment: number,
@@ -79,6 +117,13 @@ export function findBaselineSecondary(
 	return values;
 }
 
+/**
+ * Finds the best kept metric value in a segment according to the optimization direction.
+ * @param results - All experiment results
+ * @param segment - Segment number to search
+ * @param direction - Optimization direction (lower or higher)
+ * @returns Best metric value, or null if no kept runs exist
+ */
 export function findBestKeptMetric(
 	results: ExperimentResult[],
 	segment: number,
@@ -94,6 +139,11 @@ export function findBestKeptMetric(
 	return best;
 }
 
+/**
+ * Computes the median of an array of numbers.
+ * @param values - Array of numeric values
+ * @returns Median value, or 0 for empty arrays
+ */
 export function sortedMedian(values: number[]): number {
 	if (values.length === 0) return 0;
 	const sorted = [...values].sort((left, right) => left - right);
@@ -104,6 +154,13 @@ export function sortedMedian(values: number[]): number {
 	return sorted[midpoint];
 }
 
+/**
+ * Computes statistical confidence for the best result using median absolute deviation.
+ * @param results - All experiment results
+ * @param segment - Segment number to analyze
+ * @param direction - Optimization direction
+ * @returns Confidence multiplier, or null if insufficient data
+ */
 export function computeConfidence(
 	results: ExperimentResult[],
 	segment: number,
@@ -132,6 +189,12 @@ export function computeConfidence(
 	return Math.abs(bestKept - baseline) / mad;
 }
 
+/**
+ * Builds a complete ExperimentState from a database session and its logged runs.
+ * @param session - Database session row
+ * @param loggedRuns - Array of run records from storage
+ * @returns Fully populated ExperimentState
+ */
 export function buildExperimentState(session: SessionRow, loggedRuns: Array<{
 	id: number;
 	segment: number;
@@ -210,6 +273,11 @@ export function buildExperimentState(session: SessionRow, loggedRuns: Array<{
 	return state;
 }
 
+/**
+ * Registers new secondary metrics discovered in a run's metric data.
+ * @param metrics - Existing metric definitions array
+ * @param values - Metric values map from a run result
+ */
 function registerSecondaryMetrics(
 	metrics: Array<{ name: string; unit: string }>,
 	values: NumericMetricMap,
@@ -223,6 +291,10 @@ function registerSecondaryMetrics(
 	}
 }
 
+/**
+ * Creates a runtime store that manages AutoresearchRuntime instances per session key.
+ * @returns RuntimeStore with clear and ensure methods
+ */
 export function createRuntimeStore(): {
 	clear(sessionKey: string): void;
 	ensure(sessionKey: string): import("./types").AutoresearchRuntime;

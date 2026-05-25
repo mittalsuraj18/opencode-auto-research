@@ -1,4 +1,9 @@
-// tools/init-experiment.ts
+/**
+ * @file tools/init-experiment.ts
+ * @description Provides the init_experiment tool for creating and configuring autoresearch sessions.
+ * Handles branch setup, autoresearch.md generation, and session persistence.
+ */
+
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { $ } from "bun";
@@ -13,6 +18,13 @@ import {
 	gitCommit,
 } from "../git";
 
+/**
+ * Creates the init_experiment tool for managing experiment initialization.
+ * @param storage - AutoresearchStorage instance for persistence
+ * @param runtime - AutoresearchRuntime for managing active state
+ * @param directory - Project directory path
+ * @returns Configured tool instance
+ */
 export function createInitExperimentTool({
 	storage,
 	runtime,
@@ -212,6 +224,11 @@ export function createInitExperimentTool({
 	});
 }
 
+/**
+ * Infers a metric unit from the metric name suffix.
+ * @param metricName - Name of the metric
+ * @returns Inferred unit string
+ */
 function inferUnit(metricName: string): string {
 	if (metricName.endsWith("_ms") || metricName.endsWith("Ms")) return "ms";
 	if (metricName.endsWith("_bytes") || metricName.endsWith("Bytes")) return "bytes";
@@ -222,6 +239,11 @@ function inferUnit(metricName: string): string {
 	return "";
 }
 
+/**
+ * Generates the initial autoresearch.md markdown content for a new experiment.
+ * @param params - Experiment parameters for the markdown template
+ * @returns Generated markdown string
+ */
 function generateAutoresearchMd(params: {
 	name: string;
 	goal: string | null;

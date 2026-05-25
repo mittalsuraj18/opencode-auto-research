@@ -1,5 +1,8 @@
-// helpers.ts
-// Parsing, formatting, path normalization, and git utilities.
+/**
+ * @file helpers.ts
+ * @description Provides parsing, formatting, path normalization, and git utility functions.
+ * Implements metric parsing, output truncation, and dirty path computation.
+ */
 
 import * as path from "node:path";
 import { $ } from "bun";
@@ -7,6 +10,12 @@ import type { ASIData, MetricDirection, NumericMetricMap } from "./types";
 
 const DENIED_KEY_NAMES = new Set(["__proto__", "constructor", "prototype"]);
 
+/**
+ * Formats a numeric value with the appropriate unit suffix.
+ * @param value - Numeric value to format
+ * @param unit - Unit string (e.g., "ms", "kb", "s")
+ * @returns Formatted string representation
+ */
 export function formatNum(value: number | null | undefined, unit: string): string {
 	if (value === null || value === undefined || Number.isNaN(value)) return "-";
 	if (unit === "µs" || unit.endsWith("_µs")) return `${value.toFixed(2)}µs`;
@@ -17,6 +26,11 @@ export function formatNum(value: number | null | undefined, unit: string): strin
 	return value.toLocaleString("en-US", { maximumFractionDigits: 2 });
 }
 
+/**
+ * Formats a duration in milliseconds into a human-readable string.
+ * @param ms - Duration in milliseconds
+ * @returns Human-readable duration string (e.g., "2h 15m", "45s")
+ */
 export function formatElapsed(ms: number): string {
 	const seconds = Math.floor(ms / 1000);
 	if (seconds >= 3600) {
@@ -32,10 +46,22 @@ export function formatElapsed(ms: number): string {
 	return `${seconds}s`;
 }
 
+/**
+ * Determines whether a metric value is better than the current best.
+ * @param current - The new metric value
+ * @param best - The current best metric value
+ * @param direction - Optimization direction (lower or higher)
+ * @returns True if current is better than best
+ */
 export function isBetter(current: number, best: number, direction: MetricDirection): boolean {
 	return direction === "lower" ? current < best : current > best;
 }
 
+/**
+ * Infers the unit for a metric from its name suffix.
+ * @param name - Metric name string
+ * @returns Inferred unit string (e.g., "ms", "kb", "s") or empty string
+ */
 export function inferMetricUnitFromName(name: string): string {
 	if (name.endsWith("µs") || name.endsWith("_µs")) return "µs";
 	if (name.endsWith("ms") || name.endsWith("_ms")) return "ms";
@@ -45,6 +71,11 @@ export function inferMetricUnitFromName(name: string): string {
 	return "";
 }
 
+/**
+ * Normalizes a path specification for consistent comparison.
+ * @param value - Raw path string
+ * @returns Normalized path specification
+ */
 export function normalizePathSpec(value: string): string {
 	const trimmed = value.trim().replaceAll("\\", "/");
 	if (trimmed === "" || trimmed === "." || trimmed === "./") return ".";
@@ -52,6 +83,12 @@ export function normalizePathSpec(value: string): string {
 	return collapsed.length === 0 ? "." : collapsed;
 }
 
+/**
+ * Checks whether a path matches a given scope specification.
+ * @param pathValue - The path to test
+ * @param specValue - The scope specification
+ * @returns True if the path matches the specification
+ */
 export function pathMatchesSpec(pathValue: string, specValue: string): boolean {
 	const normalizedPath = normalizePathSpec(pathValue);
 	const normalizedSpec = normalizePathSpec(specValue);
@@ -59,6 +96,11 @@ export function pathMatchesSpec(pathValue: string, specValue: string): boolean {
 	return normalizedPath === normalizedSpec || normalizedPath.startsWith(`${normalizedSpec}/`);
 }
 
+/**
+ * Removes duplicate and empty strings from an array while preserving order.
+ * @param values - Array of strings, potentially with duplicates
+ * @returns Deduplicated array of trimmed non-empty strings
+ */
 export function dedupeStrings(values: readonly string[]): string[] {
 	const out: string[] = [];
 	const seen = new Set<string>();
@@ -71,6 +113,11 @@ export function dedupeStrings(values: readonly string[]): string[] {
 	return out;
 }
 
+/**
+ * Sanitizes a metric map by removing non-finite and unsafe keys.
+ * @param value - Input numeric metric map
+ * @returns Cleaned numeric metric map with only finite numbers
+ */
 export function ensureNumericMetricMap(value: NumericMetricMap | undefined): NumericMetricMap {
 	if (!value) return {};
 	const out: NumericMetricMap = {};
@@ -83,6 +130,11 @@ export function ensureNumericMetricMap(value: NumericMetricMap | undefined): Num
 	return out;
 }
 
+/**
+ * Sanitizes Agent State Info values by removing unsafe keys and undefined entries.
+ * @param value - Raw ASI record object
+ * @returns Sanitized ASIData or undefined if empty
+ */
 export function sanitizeAsi(value: Record<string, unknown> | undefined): ASIData | undefined {
 	if (!value) return undefined;
 	const result: ASIData = {};
@@ -96,6 +148,7 @@ export function sanitizeAsi(value: Record<string, unknown> | undefined): ASIData
 	return Object.keys(result).length > 0 ? result : undefined;
 }
 
+/** Recursively sanitizes an ASI value into a safe ASIData-compatible value */
 function sanitizeAsiValue(value: unknown): import("./types").ASIValue | undefined {
 	if (value === null) return null;
 	if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return value;
@@ -120,6 +173,11 @@ function sanitizeAsiValue(value: unknown): import("./types").ASIValue | undefine
 	return undefined;
 }
 
+/**
+ * Parses a single METRIC line from benchmark output.
+ * @param line - Raw output line to parse
+ * @returns Parsed metric name and value, or null if not a valid METRIC line
+ */
 export function parseMetricLine(line: string): { name: string; value: number } | null {
 	const match = line.match(/^METRIC\s+(\S+)\s*=\s*([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/);
 	if (!match) return null;
@@ -128,12 +186,23 @@ export function parseMetricLine(line: string): { name: string; value: number } |
 	return { name: match[1], value };
 }
 
+/**
+ * Parses a single ASI line from benchmark output.
+ * @param line - Raw output line to parse
+ * @returns Parsed ASI key and value string, or null if not a valid ASI line
+ */
 export function parseAsiLine(line: string): { key: string; value: string } | null {
 	const match = line.match(/^ASI\s+([^=]+?)\s*=\s*(.*)$/);
 	if (!match) return null;
 	return { key: match[1].trim(), value: match[2].trim() };
 }
 
+/**
+ * Parses full benchmark output to extract metrics and ASI data.
+ * @param output - Raw benchmark harness output
+ * @param primaryMetricName - Name of the primary metric to extract
+ * @returns Object containing primary metric, all metrics map, and ASI data
+ */
 export function parseBenchmarkOutput(
 	output: string,
 	primaryMetricName: string,
@@ -166,6 +235,13 @@ export function parseBenchmarkOutput(
 	return { primaryMetric, metrics, asi };
 }
 
+/**
+ * Truncates benchmark output to a maximum number of lines and characters.
+ * @param output - Raw output string
+ * @param maxChars - Maximum characters to include (default: 4000)
+ * @param maxLines - Maximum lines to include (default: 10)
+ * @returns Truncated output string with ellipsis indicators
+ */
 export function truncateOutput(output: string, maxChars = 4000, maxLines = 10): string {
 	const lines = output.split("\n");
 	if (lines.length <= maxLines && output.length <= maxChars) {
@@ -182,6 +258,11 @@ export function truncateOutput(output: string, maxChars = 4000, maxLines = 10): 
 	return result;
 }
 
+/**
+ * Retrieves the git status output for a working directory.
+ * @param cwd - Path to the git working directory
+ * @returns Git status string in porcelain format, or empty string on failure
+ */
 export async function tryGitStatus(cwd: string): Promise<string> {
 	try {
 		const result = await $`git -C ${cwd} status --porcelain -z --untracked-files=all`.text();
@@ -191,6 +272,11 @@ export async function tryGitStatus(cwd: string): Promise<string> {
 	}
 }
 
+/**
+ * Retrieves the git work directory prefix relative to the repository root.
+ * @param cwd - Path to the git working directory
+ * @returns Normalized prefix string, or empty string on failure
+ */
 export async function tryGitPrefix(cwd: string): Promise<string> {
 	try {
 		const result = await $`git -C ${cwd} rev-parse --show-prefix`.text();
@@ -200,6 +286,11 @@ export async function tryGitPrefix(cwd: string): Promise<string> {
 	}
 }
 
+/**
+ * Parses git status output into an array of dirty path strings.
+ * @param statusOutput - Raw git status output
+ * @returns Array of normalized dirty paths
+ */
 export function parseDirtyPaths(statusOutput: string): string[] {
 	if (statusOutput.includes("\0")) {
 		return parseDirtyPathsNul(statusOutput);
@@ -207,6 +298,7 @@ export function parseDirtyPaths(statusOutput: string): string[] {
 	return parseDirtyPathsLines(statusOutput);
 }
 
+/** Parses NUL-delimited git status output into dirty paths */
 function parseDirtyPathsNul(statusOutput: string): string[] {
 	const unsafePaths = new Set<string>();
 	let index = 0;
@@ -229,6 +321,7 @@ function parseDirtyPathsNul(statusOutput: string): string[] {
 	return [...unsafePaths];
 }
 
+/** Parses line-based git status output into dirty paths */
 function parseDirtyPathsLines(statusOutput: string): string[] {
 	const unsafePaths = new Set<string>();
 	for (const line of statusOutput.split("\n")) {
@@ -244,12 +337,18 @@ function parseDirtyPathsLines(statusOutput: string): string[] {
 	return [...unsafePaths];
 }
 
+/** Normalizes and adds a raw path to the dirty paths set */
 function addDirtyPath(paths: Set<string>, rawPath: string): void {
 	const normalizedPath = normalizeStatusPath(rawPath);
 	if (normalizedPath.length === 0) return;
 	paths.add(normalizedPath);
 }
 
+/**
+ * Normalizes a raw git status path, handling quoted paths.
+ * @param rawPath - Raw path from git status
+ * @returns Normalized path string
+ */
 export function normalizeStatusPath(rawPath: string): string {
 	let normalized = rawPath.trim();
 	if (normalized.startsWith('"') && normalized.endsWith('"')) {
@@ -258,11 +357,18 @@ export function normalizeStatusPath(rawPath: string): string {
 	return normalizePathSpec(normalized);
 }
 
+/** Checks if a git status token indicates a rename or copy operation */
 function isRenameOrCopy(statusToken: string): boolean {
 	const trimmed = statusToken.trim();
 	return trimmed.startsWith("R") || trimmed.startsWith("C");
 }
 
+/**
+ * Converts dirty paths from git status to be relative to the current work directory.
+ * @param statusOutput - Raw git status output
+ * @param workDirPrefix - Prefix for the current working directory within the repo
+ * @returns Array of relative dirty paths
+ */
 export function parseWorkDirDirtyPaths(statusOutput: string, workDirPrefix: string): string[] {
 	const relativePaths: string[] = [];
 	for (const dirtyPath of parseDirtyPaths(statusOutput)) {
@@ -273,6 +379,12 @@ export function parseWorkDirDirtyPaths(statusOutput: string, workDirPrefix: stri
 	return relativePaths;
 }
 
+/**
+ * Converts a repository-relative path to be relative to the work directory.
+ * @param repoRelativePath - Path relative to the repository root
+ * @param workDirPrefix - Prefix for the current working directory within the repo
+ * @returns Relative path string, or null if outside the work directory
+ */
 export function relativizeGitPathToWorkDir(
 	repoRelativePath: string,
 	workDirPrefix: string,
@@ -291,6 +403,13 @@ export function relativizeGitPathToWorkDir(
 	return normalizePathSpec(normalizedPath.slice(normalizedPrefix.length + 1));
 }
 
+/**
+ * Computes the files modified during a benchmark run by comparing pre and post-run status.
+ * @param preRunDirtyPaths - Dirty paths recorded before the run
+ * @param currentStatusOutput - Git status output after the run
+ * @param workDirPrefix - Prefix for the current working directory
+ * @returns Object with tracked and untracked modified file arrays
+ */
 export function computeRunModifiedPaths(
 	preRunDirtyPaths: string[],
 	currentStatusOutput: string,
@@ -310,6 +429,12 @@ export function computeRunModifiedPaths(
 	return { tracked, untracked };
 }
 
+/**
+ * Parses git status and converts dirty paths with their tracked/untracked status.
+ * @param statusOutput - Raw git status output
+ * @param workDirPrefix - Prefix for the current working directory
+ * @returns Array of dirty path entries with untracked flag
+ */
 export function parseWorkDirDirtyPathsWithStatus(
 	statusOutput: string,
 	workDirPrefix: string,
@@ -327,6 +452,11 @@ export function parseWorkDirDirtyPathsWithStatus(
 	return results;
 }
 
+/**
+ * Parses git status output into path entries with tracked/untracked status.
+ * @param statusOutput - Raw git status output
+ * @returns Array of path entries indicating whether each is untracked
+ */
 export function parseDirtyPathsWithStatus(
 	statusOutput: string,
 ): Array<{ path: string; untracked: boolean }> {
@@ -336,6 +466,7 @@ export function parseDirtyPathsWithStatus(
 	return parseDirtyPathsLinesWithStatus(statusOutput);
 }
 
+/** Parses NUL-delimited git status into entries with tracked/untracked status */
 function parseDirtyPathsNulWithStatus(
 	statusOutput: string,
 ): Array<{ path: string; untracked: boolean }> {
@@ -362,6 +493,7 @@ function parseDirtyPathsNulWithStatus(
 	return results;
 }
 
+/** Parses line-based git status into entries with tracked/untracked status */
 function parseDirtyPathsLinesWithStatus(
 	statusOutput: string,
 ): Array<{ path: string; untracked: boolean }> {
@@ -382,6 +514,7 @@ function parseDirtyPathsLinesWithStatus(
 	return results;
 }
 
+/** Adds a normalized dirty path entry to the results if not already seen */
 function addDirtyPathEntry(
 	seen: Set<string>,
 	results: Array<{ path: string; untracked: boolean }>,

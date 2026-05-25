@@ -1,4 +1,9 @@
-// tools/update-notes.ts
+/**
+ * @file tools/update-notes.ts
+ * @description Provides the update_notes tool for managing experiment notes.
+ * Persists notes to SQLite and synchronizes them with autoresearch.md.
+ */
+
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { tool } from "@opencode-ai/plugin";
@@ -6,6 +11,13 @@ import { z } from "zod";
 import type { AutoresearchRuntime } from "../types";
 import type { AutoresearchStorage } from "../storage";
 
+/**
+ * Creates the update_notes tool for managing experiment notes.
+ * @param storage - AutoresearchStorage instance for persistence
+ * @param runtime - AutoresearchRuntime for managing active state
+ * @param directory - Project directory path
+ * @returns Configured tool instance
+ */
 export function createUpdateNotesTool({
 	storage,
 	runtime,

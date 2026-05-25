@@ -1,4 +1,9 @@
-// tools/log-experiment.ts
+/**
+ * @file tools/log-experiment.ts
+ * @description Provides the log_experiment tool for recording benchmark results.
+ * Handles git operations, scope deviation detection, and autoresearch.md updates.
+ */
+
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { tool } from "@opencode-ai/plugin";
@@ -31,6 +36,14 @@ import {
 	isAutoresearchBranch,
 } from "../git";
 
+/**
+ * Creates the log_experiment tool for recording and managing experiment results.
+ * @param storage - AutoresearchStorage instance for persistence
+ * @param runtime - AutoresearchRuntime for managing active state
+ * @param directory - Project directory path
+ * @param client - OpenCode client instance
+ * @returns Configured tool instance
+ */
 export function createLogExperimentTool({
 	storage,
 	runtime,
@@ -351,6 +364,12 @@ export function createLogExperimentTool({
 	});
 }
 
+/**
+ * Safely parses a JSON string, returning a fallback on failure.
+ * @param json - JSON string to parse
+ * @param fallback - Default value to return on parse error
+ * @returns Parsed value or fallback
+ */
 function safeParseJson<T>(json: string | null, fallback: T): T {
 	if (!json) return fallback;
 	try {
@@ -360,6 +379,14 @@ function safeParseJson<T>(json: string | null, fallback: T): T {
 	}
 }
 
+/**
+ * Updates the autoresearch.md file with a new run entry and baseline information.
+ * @param directory - Project directory path
+ * @param state - Current experiment state
+ * @param status - Run status (keep, discard, crash, checks_failed)
+ * @param description - Run description
+ * @param metric - Primary metric value
+ */
 async function updateAutoresearchMd(
 	directory: string,
 	state: import("../types").ExperimentState,

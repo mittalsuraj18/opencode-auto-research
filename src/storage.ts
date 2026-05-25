@@ -1,5 +1,8 @@
-// storage.ts
-// SQLite persistence for autoresearch sessions and runs.
+/**
+ * @file storage.ts
+ * @description Implements SQLite persistence for autoresearch sessions and benchmark runs.
+ * Provides the AutoresearchStorage class for managing experiment data.
+ */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -126,11 +129,20 @@ type RunDbRow = {
 	abandoned_at: number | null;
 };
 
+/**
+ * Manages SQLite storage for autoresearch experiment sessions and benchmark runs.
+ * Provides CRUD operations for sessions, runs, and schema management.
+ */
 export class AutoresearchStorage {
 	#db: Database;
 	#projectDir: string;
 	#dbPath: string;
 
+	/**
+	 * Initializes the SQLite database and ensures the schema is up to date.
+	 * @param dbPath - Absolute path to the SQLite database file
+	 * @param projectDir - Path to the project directory being tracked
+	 */
 	constructor(dbPath: string, projectDir: string) {
 		this.#dbPath = dbPath;
 		this.#projectDir = projectDir;
@@ -144,18 +156,25 @@ export class AutoresearchStorage {
 		}
 	}
 
+	/** Absolute path to the SQLite database file */
 	get dbPath(): string {
 		return this.#dbPath;
 	}
 
+	/** Path to the project directory being tracked */
 	get projectDir(): string {
 		return this.#projectDir;
 	}
 
+	/** Closes the database connection */
 	close(): void {
 		this.#db.close();
 	}
 
+	/**
+	 * Retrieves the most recently created active session.
+	 * @returns Active SessionRow, or null if no active session exists
+	 */
 	getActiveSession(): SessionRow | null {
 		const stmt = this.#db.prepare(
 			"SELECT * FROM sessions WHERE closed_at IS NULL ORDER BY id DESC LIMIT 1",
@@ -164,6 +183,11 @@ export class AutoresearchStorage {
 		return row ? rowToSession(row) : null;
 	}
 
+	/**
+	 * Retrieves the active session associated with a specific git branch.
+	 * @param branch - Git branch name, or null for branchless sessions
+	 * @returns Active SessionRow for the branch, or null
+	 */
 	getActiveSessionForBranch(branch: string | null): SessionRow | null {
 		if (branch === null) {
 			const stmt = this.#db.prepare(
@@ -179,12 +203,22 @@ export class AutoresearchStorage {
 		return row ? rowToSession(row) : null;
 	}
 
+	/**
+	 * Retrieves a session by its unique ID.
+	 * @param id - Session ID
+	 * @returns SessionRow, or null if not found
+	 */
 	getSession(id: number): SessionRow | null {
 		const stmt = this.#db.prepare("SELECT * FROM sessions WHERE id = ?");
 		const row = stmt.get(id) as SessionDbRow | null;
 		return row ? rowToSession(row) : null;
 	}
 
+	/**
+	 * Inserts a new experiment session into the database.
+	 * @param params - Session creation parameters
+	 * @returns The newly created SessionRow
+	 */
 	insertSession(params: {
 		name: string;
 		goal: string | null;
@@ -224,18 +258,36 @@ export class AutoresearchStorage {
 		return rowToSession(row);
 	}
 
+	/**
+	 * Marks a session as closed by setting its closed_at timestamp.
+	 * @param id - Session ID to close
+	 */
 	closeSession(id: number): void {
 		this.#db.run("UPDATE sessions SET closed_at = ? WHERE id = ?", [Date.now(), id]);
 	}
 
+	/**
+	 * Increments the current segment for a session.
+	 * @param id - Session ID to update
+	 */
 	incrementSegment(id: number): void {
 		this.#db.run("UPDATE sessions SET current_segment = current_segment + 1 WHERE id = ?", [id]);
 	}
 
+	/**
+	 * Updates the notes field for a session.
+	 * @param id - Session ID to update
+	 * @param notes - New notes content
+	 */
 	updateNotes(id: number, notes: string): void {
 		this.#db.run("UPDATE sessions SET notes = ? WHERE id = ?", [notes, id]);
 	}
 
+	/**
+	 * Inserts a new pending benchmark run record.
+	 * @param params - Run insertion parameters
+	 * @returns Object containing the new run ID
+	 */
 	insertRun(params: InsertRunParams): { id: number } {
 		const stmt = this.#db.prepare(
 			"INSERT INTO runs (session_id, segment, command, started_at, pre_run_dirty_paths_json, log_path) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
@@ -251,6 +303,10 @@ export class AutoresearchStorage {
 		return row;
 	}
 
+	/**
+	 * Marks a run as completed with its benchmark results.
+	 * @param params - Completion parameters including parsed metrics
+	 */
 	markRunCompleted(params: MarkRunCompletedParams): void {
 		this.#db.run(
 			"UPDATE runs SET completed_at = ?, duration_ms = ?, exit_code = ?, timed_out = ?, parsed_primary = ?, parsed_metrics_json = ?, parsed_asi_json = ? WHERE id = ?",
@@ -267,6 +323,10 @@ export class AutoresearchStorage {
 		);
 	}
 
+	/**
+	 * Marks a run as logged with its final status and metadata.
+	 * @param params - Logging parameters including status and metrics
+	 */
 	markRunLogged(params: MarkRunLoggedParams): void {
 		this.#db.run(
 			"UPDATE runs SET status = ?, description = ?, metric = ?, metrics_json = ?, asi_json = ?, commit_hash = ?, confidence = ?, modified_paths_json = ?, scope_deviations_json = ?, justification = ?, logged_at = ? WHERE id = ?",
@@ -287,6 +347,11 @@ export class AutoresearchStorage {
 		);
 	}
 
+	/**
+	 * Retrieves all non-abandoned runs for a session, ordered by start time.
+	 * @param sessionId - Session ID to query
+	 * @returns Array of RunDbRow records
+	 */
 	getRunsForSession(sessionId: number): RunDbRow[] {
 		const stmt = this.#db.prepare(
 			"SELECT * FROM runs WHERE session_id = ? AND abandoned_at IS NULL ORDER BY started_at",
@@ -294,10 +359,20 @@ export class AutoresearchStorage {
 		return stmt.all(sessionId) as RunDbRow[];
 	}
 
+	/**
+	 * Marks all pending (unlogged) runs for a session as abandoned.
+	 * @param sessionId - Session ID to update
+	 */
 	abandonPendingRuns(sessionId: number): void {
 		this.#db.run("UPDATE runs SET abandoned_at = ? WHERE session_id = ? AND status IS NULL", [Date.now(), sessionId]);
 	}
 
+	/**
+	 * Counts the number of logged runs in a specific segment.
+	 * @param sessionId - Session ID to query
+	 * @param segment - Segment number to count
+	 * @returns Count of logged runs in the segment
+	 */
 	countRunsInSegment(sessionId: number, segment: number): number {
 		const stmt = this.#db.prepare(
 			"SELECT COUNT(*) as count FROM runs WHERE session_id = ? AND segment = ? AND status IS NOT NULL",
@@ -307,6 +382,11 @@ export class AutoresearchStorage {
 	}
 }
 
+/**
+ * Converts a raw database session row into a typed SessionRow object.
+ * @param row - Raw database row
+ * @returns Typed SessionRow with parsed JSON fields
+ */
 function rowToSession(row: SessionDbRow): SessionRow {
 	return {
 		id: row.id,
@@ -329,6 +409,12 @@ function rowToSession(row: SessionDbRow): SessionRow {
 	};
 }
 
+/**
+ * Safely parses a JSON string, returning a fallback on failure.
+ * @param json - JSON string to parse
+ * @param fallback - Default value to return on parse error
+ * @returns Parsed value or fallback
+ */
 function safeParseJson<T>(json: string, fallback: T): T {
 	try {
 		return JSON.parse(json) as T;
@@ -337,6 +423,11 @@ function safeParseJson<T>(json: string, fallback: T): T {
 	}
 }
 
+/**
+ * Opens or creates the autoresearch SQLite storage for a project.
+ * @param projectDir - Path to the project directory
+ * @returns Initialized AutoresearchStorage instance
+ */
 export function openAutoresearchStorage(projectDir: string): AutoresearchStorage {
 	const stateDir = path.join(process.env.HOME ?? "/tmp", ".opencode-autoresearch");
 	const encodedProject = encodeURIComponent(projectDir);
@@ -344,6 +435,11 @@ export function openAutoresearchStorage(projectDir: string): AutoresearchStorage
 	return new AutoresearchStorage(dbPath, projectDir);
 }
 
+/**
+ * Opens the autoresearch SQLite storage only if it already exists.
+ * @param projectDir - Path to the project directory
+ * @returns AutoresearchStorage instance, or null if no database exists
+ */
 export function openAutoresearchStorageIfExists(projectDir: string): AutoresearchStorage | null {
 	const stateDir = path.join(process.env.HOME ?? "/tmp", ".opencode-autoresearch");
 	const encodedProject = encodeURIComponent(projectDir);

@@ -1,5 +1,8 @@
-// index.ts
-// Plugin entry point for opencode-auto-research.
+/**
+ * @file index.ts
+ * @description Plugin entry point for opencode-auto-research.
+ * Registers tools, commands, system prompt injection, and auto-compaction hooks.
+ */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -13,6 +16,12 @@ import { createRunExperimentTool } from "./tools/run-experiment";
 import { createLogExperimentTool } from "./tools/log-experiment";
 import { createUpdateNotesTool } from "./tools/update-notes";
 
+/**
+ * Default plugin export that initializes the autoresearch system.
+ * @param client - OpenCode plugin client instance
+ * @param directory - Project directory path
+ * @returns Plugin configuration object
+ */
 export default (async ({ client, directory }) => {
 	const storage = openAutoresearchStorage(directory);
 	const runtimeStore = createRuntimeStore();
