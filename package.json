@@ -1,10 +1,32 @@
 {
   "name": "@mittalsuraj18/opencode-auto-research",
   "version": "0.1.0",
-  "type": "module",
   "description": "Autoresearch plugin for OpenCode - automated benchmark-driven optimization loop",
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "autoresearch",
+    "benchmark",
+    "optimization",
+    "experiment"
+  ],
+  "homepage": "https://github.com/mittalsuraj18/opencode-auto-research#readme",
+  "bugs": {
+    "url": "https://github.com/mittalsuraj18/opencode-auto-research/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mittalsuraj18/opencode-auto-research.git"
+  },
+  "license": "ISC",
+  "author": "Suraj Mittal",
+  "type": "module",
   "exports": {
     ".": "./dist/index.js"
+  },
+  "main": "index.js",
+  "directories": {
+    "test": "test"
   },
   "files": [
     "dist",
@@ -15,14 +37,6 @@
     "test": "bun test --timeout 30000",
     "prepublishOnly": "bun run build && bun test"
   },
-  "keywords": [
-    "opencode",
-    "opencode-plugin",
-    "autoresearch",
-    "benchmark",
-    "optimization",
-    "experiment"
-  ],
   "dependencies": {
     "@opencode-ai/plugin": "^1.14.0",
     "zod": "4.1.8"
